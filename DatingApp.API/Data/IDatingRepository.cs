@@ -1,6 +1,7 @@
 ﻿using DatingApp.API.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace DatingApp.API.Data
@@ -12,6 +13,8 @@ namespace DatingApp.API.Data
     Task<bool> SaveAll();
     Task<IEnumerable<User>> GetUsers();
     Task<User> GetUser(int id);
+    Task<Photo> GetPhoto(int id);
+    Task<Photo> GetMainPhotoForUser(int userId);
   }
 
   public class DatingRepository : IDatingRepository
@@ -51,6 +54,18 @@ namespace DatingApp.API.Data
         .FirstOrDefaultAsync(u => u.Id == id);
 
       return user;
+    }
+
+    public async Task<Photo> GetPhoto(int id)
+    {
+      var photo = await _context.Photos.FirstOrDefaultAsync(p => p.Id == id);
+
+      return photo;
+    }
+
+    public async Task<Photo> GetMainPhotoForUser(int userId)
+    {
+      return await _context.Photos.Where(u => u.UserId == userId).FirstOrDefaultAsync(p => p.IsMain);
     }
   }
 }
