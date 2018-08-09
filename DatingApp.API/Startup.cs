@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -28,6 +29,38 @@ namespace DatingApp.API
 
     // This method gets called by the runtime. Use this method to add services to the container.
     public void ConfigureServices(IServiceCollection services)
+    {
+      services.Configure<CloudinarySettings>(Configuration.GetSection("CloudinarySettings"));
+      services.AddAutoMapper();
+      services.AddScoped<IDatingRepository, DatingRepository>();
+      services.AddTransient<Seed>();
+      services.AddDbContext<DataContext>(opt =>
+        opt.UseMySql(Configuration.GetConnectionString("DefaultConnection"))
+          .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.IncludeIgnoredWarning)));
+      services.AddCors();
+      services.AddMvc()
+        .SetCompatibilityVersion(CompatibilityVersion.Version_2_1)
+        .AddJsonOptions(opt =>
+        {
+          opt.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
+        });
+      services.AddScoped<IAuthRepository, AuthRepository>();
+      services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(opt =>
+        {
+          opt.TokenValidationParameters = new TokenValidationParameters
+          {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII
+              .GetBytes(Configuration.GetSection("AppSettings:Token").Value)),
+            ValidateIssuer = false,
+            ValidateAudience = false
+          };
+        });
+      services.AddScoped<LogUserActivity>();
+    }
+
+    public void ConfigureDevelopmentServices(IServiceCollection services)
     {
       services.Configure<CloudinarySettings>(Configuration.GetSection("CloudinarySettings"));
       services.AddAutoMapper();
@@ -91,9 +124,15 @@ namespace DatingApp.API
         .AllowAnyOrigin());
 
       app.UseAuthentication();
-
+      app.UseDefaultFiles();
+      app.UseStaticFiles();
       //app.UseHttpsRedirection();
-      app.UseMvc();
+      app.UseMvc(routes =>
+      {
+        routes.MapSpaFallbackRoute(
+          name: "spa-fallback",
+          defaults: new { Controller = "Fallback", Action = "Index" });
+      });
     }
   }
 }
